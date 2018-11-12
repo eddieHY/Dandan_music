@@ -1,48 +1,152 @@
 <template>
-  <swiper :options="swiperOption" class="slider">
-    <swiper-slide v-for="(banner, index) in data" :key="index">
-     <a class="link" target="_blank" :href="banner.linkUrl">
-       <img class="link_img" :src="banner.picUrl">
-     </a>
-    </swiper-slide>
-    <div class="swiper-pagination" slot="pagination"></div>
-  </swiper>
+  <div class="slider" ref="slider">
+   <div class="slider-group" ref="sliderGroup">
+     <slot>
+     </slot>
+   </div>
+   <div class="dots">
+     <span v-for="(item, index) in dots" :key="index" class="dot" :class="{active: currentPageIndex === index}"></span>
+   </div>
+  </div>
 </template>
 
 <script>
+import {addClass} from 'common/js/dom'
+import BScroll from 'better-scroll'
 export default {
-  name: 'slider',
-  props: ['data'],
+  props: {
+    loop: {
+      type: Boolean,
+      default: true
+    },
+    autoPlay: {
+      type: Boolean,
+      default: true
+    },
+    interval: {
+      type: Number,
+      default: 4000
+    }
+  },
   data() {
     return {
-      swiperOption: {
-        autoplay: true,
-        setWrapperSize: true,
-        pagination: '.swiper-pagination',
-        paginationClickable: true,
-        mousewheelControl: true,
-        observeParents: true
+      dots: [],
+      currentPageIndex: 0
+    }
+  },
+  mounted () {
+    setTimeout(() => {
+      this._setSliderWidth()
+      this._initDots()
+      this._initSlider()
+
+      if (this.autoPlay) {
+        this._play()
       }
-    }
+    }, 20)
   },
-  computed: {
-    swiper() {
-      return this.$refs.mySwiper.swiper
-    }
+  beforeDestroy() {
+    clearTimeout(this.timer)
   },
-  mounted() {
-    this.swiper.slideTo(3, 1000, false)
+  methods: {
+    _setSliderWidth() {
+      this.children = this.$refs.sliderGroup.children
+
+      let width = 0
+      let sliderWidth = this.$refs.slider.clientWidth
+      for (let i = 0; i < this.children.length; i++) {
+        let child = this.children[i]
+        addClass(child, 'slider-item')
+
+        child.style.width = sliderWidth + 'px'
+        width = width + sliderWidth
+      }
+      if (this.loop) {
+        width += 2 * sliderWidth
+      }
+      this.$refs.sliderGroup.style.width = width + 'px'
+    },
+    _initDots() {
+      this.dots = new Array(this.children.length)
+    },
+    _initSlider() {
+      this.slider = new BScroll(this.$refs.slider, {
+        scrollX: true,
+        scrollY: false,
+        momentum: false,
+        snap: true,
+        snapLoop: this.loop,
+        snapThreshold: 0.3,
+        snapSpeed: 400
+      })
+      this.slider.on('scrollEnd', () => {
+        let pageIndex = this.slider.getCurrentPage().pageX
+        if (this.loop) {
+          pageIndex -= 1
+        }
+        this.currentPageIndex = pageIndex
+
+        if (this.autoPlay) {
+          this._play()
+        }
+      })
+      this.slider.on('beforeScrollStart', () => {
+        if (this.autoPlay) {
+          clearTimeout(this.timer)
+        }
+      })
+    },
+    _play() {
+      let pageIndex = this.currentPageIndex + 1
+      if (this.loop) {
+        pageIndex += 1
+      }
+      this.timer = setTimeout(() => {
+        this.slider.goToPage(pageIndex, 0, 400)
+      }, this.interval)
+    }
   }
 }
 </script>
 
-<style lang="stylus" scoped>
+<style lang="stylus">
+@import "~common/stylus/variable"
 .slider
-  height 150px
-  .link
-    display: inline-block;
-    height: 100%;
-  .link_img
-    height 100%;
-    width 100%
+  min-height 1px
+  position relative
+  .slider-group
+    position relative
+    overflow hidden
+    white-space nowrap
+    .slider-item
+      float: left
+      box-sizing: border-box
+      overflow: hidden
+      text-align: center
+      a
+        display: block
+        width: 100%
+        overflow: hidden
+        text-decoration: none
+      img
+        display: block
+        width: 100%
+  .dots
+    position absolute
+    right 0
+    left 0
+    bottom 12px
+    text-align center
+    font-size 0
+    .dot
+      display: inline-block
+      margin: 0 4px
+      width: 8px
+      height: 8px
+      border-radius: 50%
+      background: $color-text-l
+      &.active
+        width 20px
+        border-radius 5px
+        background $color-text-ll
 </style>
